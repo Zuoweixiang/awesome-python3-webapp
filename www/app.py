@@ -10,17 +10,16 @@
 '''
 async web application
 '''
-import logging; logging.basicConfig(level=logging.INFO)
+import logging;logging.basicConfig(level=logging.INFO)
 
 import asyncio, os, json, time
 from datetime import datetime
 
 from aiohttp import web
 
-from  jinja2 import  Environment,FileSystemLoader
-
-import  orm
-from coroweb import  add_routes,add_static
+from jinja2 import  Environment,FileSystemLoader
+import orm
+from coroweb import add_routes,add_static
 
 def init_jinja2(app,**kw):
     logging.info('init jinja2 ...')
@@ -127,20 +126,21 @@ def datetime_filter(t):
 def index(request):
     return web.Response(body=b'<h1>Awesome</h1>', content_type='text/html')
 
-@asyncio.coroutine
-def init(loop):
-   yield from orm.creat_pool(loop=loop,host = '127.0.0.1',port=3306,user='www',password='www',db='awesome')
-    app = web.Application(loop=loop,middlewares=[
-        logger_factory,response_factory
-    ])
-    init_jinja2(app,filters=dict(datetime=datetime_filter))
-    add_routes(app,'handlers')
-    add_static(app)
+async def init(loop):
+     #链接mysql
+      await orm.create_pool(loop=loop,host = '127.0.0.1',port=3306,user='root',password='password',db='mysql')
+      app = web.Application(loop=loop,middlewares=[
+            logger_factory,response_factory
+      ])
+      init_jinja2(app,filters=dict(datetime=datetime_filter))
+      add_routes(app,'handlers')
+      add_static(app)
+      # app = web.Application(loop= loop)
+      # app.router.add_route('GET', '/', index)
+      srv = await loop.create_server(app.make_handler(), '127.0.0.1', 9000)
+      logging.info('server started at http://127.0.0.1:9000...')
+      return srv
 
-    app.router.add_route('GET', '/', index)
-    srv = yield from loop.create_server(app.make_handler(), '127.0.0.1', 9000)
-    logging.info('server started at http://127.0.0.1:9000...')
-    return srv
 
 loop = asyncio.get_event_loop()
 loop.run_until_complete(init(loop))
