@@ -89,8 +89,9 @@ class RequestHandler(object):
         self._required_kw_args = get_required_kw_args(fn)
 
     def __call__(self, request):
+         logging.info('-------------call--------')
          kw = None
-         if self._has_var_kw_args or self._has_named_kw_args or self._has_request_args:
+         if self._has_var_kw_args or self._has_named_kw_args or self._required_kw_args:
              if request.method == 'POST':
                  if not request.content_type:
                      return web.HTTPBadRequest('Missing Content-Type.')
@@ -116,7 +117,7 @@ class RequestHandler(object):
          if kw is None:
              kw = dict(**request.match_info)
          else:
-             if not self._has_var_kw_args and self._has_named_kw_args:
+             if not self._has_var_kw_args and self._named_kw_args:
                  # remove all unamed kw:
 
                  copy = dict()
@@ -180,7 +181,7 @@ def add_routes(app,module_name):
             method = getattr(fn ,'__method__',None)
             path = getattr(fn ,'__route__',None)
             if method and path:
-                logging.info('method:%s,path:%s' %(method,path))
+                logging.info('method:%s,path:%s,func=%s' %(method,path,fn.__name__))
                 add_route(app,fn)
 
 

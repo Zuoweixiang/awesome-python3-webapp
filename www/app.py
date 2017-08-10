@@ -20,6 +20,9 @@ from aiohttp import web
 from jinja2 import  Environment,FileSystemLoader
 import orm
 from coroweb import add_routes,add_static
+from model import User
+import pymysql
+import pymysql.cursors
 
 def init_jinja2(app,**kw):
     logging.info('init jinja2 ...')
@@ -41,15 +44,18 @@ def init_jinja2(app,**kw):
         for name ,f in filters.items():
             env.filters[name] = f
     app['__templating__'] = env
-
+@asyncio.coroutine
 def logger_factory(app,handle):
-    async  def logger(request):
+    logging.info('logger_factory:call------')
+    async def logger(request):
         logging.info('Resquest:%s %s' %(request.method,request.path))
         #await  asyncio.sleep(0.3)
         return  await handle(request)
     return logger
 
 def data_factory(app,handler):
+    logging.info('data_factory:call------')
+
     async def parse_data(request):
         if request.method == 'POST':
             if request.content_type.startswith('application/json'):
@@ -61,8 +67,9 @@ def data_factory(app,handler):
         return (await handler(request))
     return parse_data
 
-
+@asyncio.coroutine
 def response_factory(app,handler):
+    logging.info('response_factory:call------%s' % str(handler.__name__))
     async def response(request):
         logging.info('Response handler...')
         r = await handler(request)
@@ -78,7 +85,7 @@ def response_factory(app,handler):
             resp = web.Response(body=r.encode('utf-8'))
             resp.content_type = 'text/html;charset=utf-8'
             return  resp
-        if isinstance((r,dict)):
+        if isinstance(r,dict):
             template = r.get('__template__')
             if template is None:
                 resp = web.Response(body=json.dumps(r,ensure_ascii=False,default=lambda o:o.__dict__).encode('utf-8'))
@@ -89,11 +96,8 @@ def response_factory(app,handler):
                 resp.content_type = 'text/html;charset=utf-8'
                 return  resp
 
-
         if isinstance(r,int) and r>=100 and r<600:
             return  web.Response(r)
-
-
 
         if isinstance(r,tuple) and len(r)==2:
             t,m=r
@@ -128,7 +132,8 @@ def index(request):
 
 async def init(loop):
      #链接mysql
-      await orm.create_pool(loop=loop,host = '127.0.0.1',port=3306,user='root',password='password',db='mysql')
+      await orm.create_pool(loop=loop,host = '127.0.0.1',port=3306,user='root',password='password',db='awesome')
+
       app = web.Application(loop=loop,middlewares=[
             logger_factory,response_factory
       ])
@@ -145,3 +150,24 @@ async def init(loop):
 loop = asyncio.get_event_loop()
 loop.run_until_complete(init(loop))
 loop.run_forever()
+
+
+
+# connection = pymysql.connect(host = 'localhost',
+#                              user = 'root',
+#                              password = 'password',
+#                              db = 'awesome',
+#                              port = 3306,
+#                              charset = 'utf8')
+#
+# try:
+#     with connection.cursor() as cursor:
+#         sql = 'select *from users'
+#         count = cursor.execute(sql)
+#         print('count = %s'% str(count))
+#
+#         for row in cursor.fetchall():
+#             print(str(row))
+#         connection.commit()
+# finally:
+#     connection.close()
