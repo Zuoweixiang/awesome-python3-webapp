@@ -23,6 +23,7 @@ from coroweb import add_routes,add_static
 from model import User
 import pymysql
 import pymysql.cursors
+from cookie import COOKIE_NAME,user2cookie,cookie2user
 
 def init_jinja2(app,**kw):
     logging.info('init jinja2 ...')
@@ -52,7 +53,7 @@ def logger_factory(app,handle):
         #await  asyncio.sleep(0.3)
         return  await handle(request)
     return logger
-
+@asyncio.coroutine
 def data_factory(app,handler):
     logging.info('data_factory:call------')
 
@@ -111,6 +112,23 @@ def response_factory(app,handler):
     return response
 
 
+@asyncio.coroutine
+def auth_factory(app,handler):
+    @asyncio.coroutine
+    def auth(request):
+        logging.info('check user:%s %s' % (request.method,request.path))
+        request.__user__ = None
+        cookie_str = request.cookies.get(COOKIE_NAME)
+        if cookie_str:
+            user = yield from cookie2user(cookie_str)
+            if user:
+                logging.info('set current user:%s' %user.email)
+                request.__user__ = user
+        if request.path.startswith('/manager/') and (request.__user__ is None or not request.__user__.admin):
+            return web.HTTPFound('/signin')
+        return (yield from handler(request))
+    return auth
+
 
 def datetime_filter(t):
     delta = int(time.time() -t)
@@ -135,7 +153,7 @@ async def init(loop):
       await orm.create_pool(loop=loop,host = '127.0.0.1',port=3306,user='root',password='password',db='awesome')
 
       app = web.Application(loop=loop,middlewares=[
-            logger_factory,response_factory
+            logger_factory, auth_factory,response_factory
       ])
       init_jinja2(app,filters=dict(datetime=datetime_filter))
       add_routes(app,'handlers')
