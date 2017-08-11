@@ -146,6 +146,7 @@ class RequestHandler(object):
              r = yield  from self._func(**kw)
              return r
          except APIError as e:
+             logging.error(msg=e.message)
              return dict(error = e.error,data = e.data,message = e.message)
 
 

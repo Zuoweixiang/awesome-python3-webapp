@@ -23,7 +23,7 @@ from coroweb import add_routes,add_static
 from model import User
 import pymysql
 import pymysql.cursors
-from cookie import COOKIE_NAME,user2cookie,cookie2user
+from cookie import COOKIE_KEY,user2cookie,cookie2user
 
 def init_jinja2(app,**kw):
     logging.info('init jinja2 ...')
@@ -118,13 +118,14 @@ def auth_factory(app,handler):
     def auth(request):
         logging.info('check user:%s %s' % (request.method,request.path))
         request.__user__ = None
-        cookie_str = request.cookies.get(COOKIE_NAME)
+        cookie_str = request.cookies.get(COOKIE_KEY)
         if cookie_str:
             user = yield from cookie2user(cookie_str)
             if user:
                 logging.info('set current user:%s' %user.email)
                 request.__user__ = user
         if request.path.startswith('/manager/') and (request.__user__ is None or not request.__user__.admin):
+            logging.info('check user cookie invalid...')
             return web.HTTPFound('/signin')
         return (yield from handler(request))
     return auth

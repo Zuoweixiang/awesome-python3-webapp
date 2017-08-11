@@ -10,13 +10,17 @@ from aiohttp import web
 
 from coroweb import get, post
 
-from apis import  APIValueError,APIResourceNotFoundError,APIError
+from apis import  APIValueError,APIResourceNotFoundError,APIError,APIPermissionError
 
 from model import User,Comment, Blog, next_id
 
 
-COOKIE_NAME = 'awesession'
+# COOKIE_NAME = 'awesession'
 COOKIE_KEY =   configs.session.secret
+
+def check_admin(request):
+    if request.__user__ is None or not request.__user__.admin:
+        raise APIPermissionError()
 
 def user2cookie(user,max_age):
     expires = str(int(time.time()+max_age))
@@ -40,7 +44,7 @@ def cookie2user(cookie_str):
             return None
         user = user_arr[0]
         s = '%s-%s-%s-%s' %(user.id,user.passwd,expires,COOKIE_KEY)
-        if sha1 != hashlib.sha1(s.encode('utf-8')).hexdigest:
+        if sha1 != hashlib.sha1(s.encode('utf-8')).hexdigest():
             logging.info('invalid sha1...')
             return None
         user.passwd = '******'

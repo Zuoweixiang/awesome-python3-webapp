@@ -20,7 +20,7 @@ from apis import  APIValueError,APIResourceNotFoundError,APIError
 
 from model import User,Comment, Blog, next_id
 
-from cookie import COOKIE_NAME,user2cookie,cookie2user
+from cookie import COOKIE_KEY,user2cookie,cookie2user,check_admin
 
 
 @get('/')
@@ -42,6 +42,8 @@ def handler_url_blogs(request):
         Blog(id='2', name='Something New', summary=summary, created_at=time.time() - 3600),
         Blog(id='3', name='Learn Swift', summary=summary, created_at=time.time() - 7200)
     ]
+
+
     return {
         '__template__':'blogs.html',
         'blogs':blogs
@@ -62,9 +64,19 @@ def signin():
 def signout(requset):
     referer = requset.headers.get('Referer')
     r = web.HTTPFound(referer or '/')
-    r.set_cookie(COOKIE_NAME,'-delete-',max_age=0,httponly=True)
+    r.set_cookie(COOKIE_KEY,'-delete-',max_age=0,httponly=True)
     logging.info('user signed out.')
     return
+
+
+@get('/manage/blogs/create')
+def manage_create_blog():
+    return {
+        '__template__':'manage_blog_edit.html',
+        'id':'',
+        'action':'/api/blogs'
+    }
+
 
 @get('/api/users/')
 def api_users():
@@ -139,7 +151,7 @@ def authenticate(*,email,passwd):
 
     r = web.Response()
     #TODO:setcookie
-    r.set_cookie(COOKIE_NAME,user2cookie(user,86400),max_age=86400,httponly=True)
+    r.set_cookie(COOKIE_KEY,user2cookie(user,86400),max_age=86400,httponly=True)
 
     user.passwd = '******'
     r.content_type = 'application/json'
@@ -154,9 +166,9 @@ def api_get_blog(*,id):
     blog = Blog.find(id)
     return blog
 
-@post('/api/blogs/add_blog')
+@post('/api/blogs')
 def api_create_blog(request,*,name,summary,content):
-    #check_admin(request)
+    check_admin(request)
     if not name or not name.strip():
         raise APIValueError('name','name cannot be empty.')
     if not summary or not summary.strip():
@@ -168,7 +180,7 @@ def api_create_blog(request,*,name,summary,content):
     return blog
 @post('/api/blogs/remove')
 def api_remove_blog(request,*,blog_id):
-    #check_admin(request)
+    check_admin(request)
     if not blog_id or not blog_id.strip():
         raise APIValueError('blog_id','blog_id cannot be empty.')
 
