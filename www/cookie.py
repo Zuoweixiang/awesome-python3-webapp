@@ -21,7 +21,7 @@ COOKIE_KEY =   configs.session.secret
 def user2cookie(user,max_age):
     expires = str(int(time.time()+max_age))
     s = '%s-%s-%s-%s' %(user.id,user.passwd,expires,COOKIE_KEY)
-    L =[user.id,expires,hashlib.sha1(s.encode('utf-8')).hexdigest]
+    L =[user.id,expires,hashlib.sha1(s.encode('utf-8')).hexdigest()]
     return '-'.join(L)
 @asyncio.coroutine
 def cookie2user(cookie_str):

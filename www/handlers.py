@@ -20,7 +20,7 @@ from apis import  APIValueError,APIResourceNotFoundError,APIError
 
 from model import User,Comment, Blog, next_id
 
-
+from cookie import COOKIE_NAME,user2cookie,cookie2user
 
 
 @get('/')
@@ -58,6 +58,13 @@ def signin():
     return {
         '__template__':'signin.html'
     }
+@get('/signout')
+def signout(requset):
+    referer = requset.headers.get('Referer')
+    r = web.HTTPFound(referer or '/')
+    r.set_cookie(COOKIE_NAME,'-delete-',max_age=0,httponly=True)
+    logging.info('user signed out.')
+    return
 
 @get('/api/users/')
 def api_users():
@@ -147,7 +154,7 @@ def api_get_blog(*,id):
     blog = Blog.find(id)
     return blog
 
-@post('/api/blogs/create')
+@post('/api/blogs/add_blog')
 def api_create_blog(request,*,name,summary,content):
     #check_admin(request)
     if not name or not name.strip():
@@ -159,6 +166,14 @@ def api_create_blog(request,*,name,summary,content):
     blog = Blog(user_id = request.__user__.id,user_name = request.__user__.name,user_image=request.__user__.image,name =name.strip(),content=content.strip())
     yield from blog.save()
     return blog
+@post('/api/blogs/remove')
+def api_remove_blog(request,*,blog_id):
+    #check_admin(request)
+    if not blog_id or not blog_id.strip():
+        raise APIValueError('blog_id','blog_id cannot be empty.')
+
+
+
 
 
 

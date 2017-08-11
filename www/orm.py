@@ -33,7 +33,7 @@ def create_pool(loop,**kw):
 
 @asyncio.coroutine
 def select(sql,args,size = None):
-    logging.info(sql,args)
+    logging.info('sql=%s,args=%s' %(sql,str(args)))
     global __pool
     with (yield  from __pool) as conn:
         cur = yield  from  conn.cursor(aiomysql.DictCursor)
