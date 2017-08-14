@@ -25,12 +25,16 @@ from cookie import COOKIE_KEY,user2cookie,cookie2user,check_admin
 
 @get('/')
 def index(request):
-    logging.info('handles:index call........')
-    users = yield from User.findAll()
-    logging.info('handles:index call::%s' % type(users))
+    summary = 'lorem issum dolor sit amet ,consectetur adipisicing elit ,sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.'
+    blogs = [
+        Blog(id='1', name='Test Blog', summary=summary, created_at=time.time() - 120),
+        Blog(id='2', name='Something New', summary=summary, created_at=time.time() - 3600),
+        Blog(id='3', name='Learn Swift', summary=summary, created_at=time.time() - 7200)
+    ]
+
     return {
-        '__template__': 'test.html',
-        'users': users
+        '__template__': 'blogs.html',
+        'blogs': blogs
     }
 
 
@@ -97,10 +101,8 @@ def api_get_users(id,request):
     # if num == 0:
     #     return dict(page=p, users=())
     logging.info('handles call:/api/users ....')
-    users = yield from User.findAll(orderBy='created_at desc', limit=10 ,where = 'id=\'%s\'' % id  )
-    for u in users:
-        u.passwd = '******'
-    return dict( users=users)
+    user = yield from User.find(id)
+    return user
 
 
 _RE_EMAILL = re.compile(r'^[a-z0-9\.\-\_]+@[a-z0-9\-\_]+(\.[a-z0-9\-\_]+){1,4}$')
@@ -175,7 +177,7 @@ def api_create_blog(request,*,name,summary,content):
         raise APIValueError('summary','summary cannot be empty.')
     if not  content or not content.strip():
         raise APIValueError('conten','content cannot be empty.')
-    blog = Blog(user_id = request.__user__.id,user_name = request.__user__.name,user_image=request.__user__.image,name =name.strip(),content=content.strip())
+    blog = Blog(user_id = request.__user__.id,user_name = request.__user__.name,user_image=request.__user__.image,name =name.strip(),content=content.strip(),summary = summary.strip())
     yield from blog.save()
     return blog
 @post('/api/blogs/remove')
