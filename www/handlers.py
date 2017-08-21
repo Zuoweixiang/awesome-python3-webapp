@@ -16,11 +16,11 @@ from aiohttp import web
 
 from coroweb import get, post
 
-from apis import  APIValueError, APIResourceNotFoundError, APIError, Page
+from apis import  APIValueError, APIResourceNotFoundError, APIError, Page,APIPermissionError
 
 from model import User, Comment, Blog, next_id
 
-from cookie import COOKIE_KEY, user2cookie, cookie2user, check_admin, get_page_index
+from cookie import COOKIE_KEY, user2cookie, cookie2user, check_admin, get_page_index,text2html
 
 
 @get('/')
@@ -30,7 +30,8 @@ def index(request):
 
     return {
         '__template__': 'blogs.html',
-        'blogs': blogs
+        'blogs': blogs,
+        '__user__':request.__user__
     }
 
 
@@ -41,6 +42,23 @@ def handler_url_blogs(request):
         '__template__':'blogs.html',
         'blogs':blogs
     }
+
+@get('/blog/{id}')
+def get_blog(id,request):
+    blog = yield from Blog.find(id)
+    comments = yield from Comment.findAll('blog_id=?', [id], orderBy='created_at desc')
+    for c in comments:
+        c.html_content = text2html(c.content)
+    blog.html_content = markdown2.markdown(blog.content)
+    return {
+        '__template__': 'blog.html',
+        'blog': blog,
+        '__user__':request.__user__,
+        'comments': comments
+    }
+
+
+
 
 @get('/register')
 def register():
@@ -61,6 +79,16 @@ def signout(requset):
     logging.info('user signed out.')
     return
 
+@get('/manage/')
+def manage():
+    return 'redirect:/manage/comments'
+
+@get('/manage/comments')
+def manage_comments(*,page = '1'):
+    return {
+        '__template__':'manage_comments.html',
+        'page_index':get_page_index(page)
+    }
 
 @get('/manage/blogs/create')
 def manage_create_blog():
@@ -76,6 +104,22 @@ def manager_blogs(*,page = '1'):
         '__template__':'manage_blogs.html',
         'page_index':get_page_index(page)
     }
+
+@get('/manage/blogs/edit')
+def manage_blogs_edit(*,id):
+    return {
+        '__template__': 'manage_blogs.html',
+        'id':id,
+        'action':'/api/blogs/%s' % id
+    }
+
+@get('/manage/users')
+def manage_users(*,page='1'):
+    return {
+        '__template__': 'manage_blogs.html',
+        'page_index':get_page_index(page)
+    }
+
 
 @get('/api/users/')
 def api_users():
@@ -192,9 +236,37 @@ def api_remove_blog(request,*,blog_id):
         raise APIValueError('blog_id','blog_id cannot be empty.')
 
 
+@get('/api/comments')
+def api_comments(*,page='1'):
+    page_index  = get_page_index(page)
+    num = yield from Comment.findNumber('count(id)')
+    p = Page(num,page_index)
+    if num == 0 :
+        return dict(page=p,comments = ())
+    comments = yield from Comment.findAll(orderBy='created_at desc',limit=(p.offset,p.limit))
+    return dict(page=p,comments=comments)
 
+@post('/api/blogs/{id}/comments')
+def api_create_comment(id,request,*,content):
+    user = request.__user__
+    if user is None:
+        raise APIPermissionError('please signin first...')
+    if not content or not content.strip():
+        raise APIValueError('content')
+    blog = yield from Blog.find(id)
+    if blog is None:
+        raise APIResourceNotFoundError('Blog')
+    comment  = Comment(blog_id = blog.id ,user_id = user.id,user_name=user.name,user_image = user.image,content = content.strip())
+    yield from comment.save()
+    return comment
 
-
-
+@post('/api/comments/{id}/delete')
+def api_delete_comments(id,request):
+    check_admin(request)
+    c = yield from Comment.find(id)
+    if c is None:
+        raise APIResourceNotFoundError('Comment')
+    yield from c.remove()
+    return dict(id = id)
 
 

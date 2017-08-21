@@ -18,7 +18,9 @@ from model import User,Comment, Blog, next_id
 # COOKIE_NAME = 'awesession'
 COOKIE_KEY =   configs.session.secret
 
-
+def text2html(text):
+    lines = map(lambda s: '<p>%s</p>' % s.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;'), filter(lambda s: s.strip() != '', text.split('\n')))
+    return ''.join(lines)
 
 def check_admin(request):
     if request.__user__ is None or not request.__user__.admin:
